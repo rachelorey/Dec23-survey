@@ -34,7 +34,7 @@ def clean_key(key_name):
     except:
         return key_name
     
-def get_name_from_codebook(codebook, question,level):
+def get_name_from_codebook(codebook, question, level):
     return codebook.loc[(codebook["question"] == question) & (codebook["value"] == level), "code"].values[0]
     
 def get_percent_select_multiple_base(data,q_codebook,question="BPC1") -> dict:
@@ -83,26 +83,46 @@ def get_percents_select_one_base(data,codebook,question):
         
     return results
 
-def get_percents(data,codebook,q_codebook,question="BPC1",demo=None) -> dict:
+def data_type_check(data,q_columns):
+    """
+    returns boolean value indicating question type
+    """
+    matrix = False
+    multiple_selections = False
+    print(q_columns)
+
+    if len(q_columns) == 0: # underscore only used when each option has selections
+        return multiple_selections, matrix # single selection
+
+    ## to address single select questions with a short response text answer
+    elif (len(q_columns) == 1) and ("TEXT" in q_columns[0]):
+        return multiple_selections, matrix # single selection
+
+    ## selects matrix quetsion (if BOTH multiple columns per question and multiple response categories within each column)
+    elif (len(q_columns) > 1) and (len(data[[q_columns[0]]][q_columns[0]].unique()) > 2):
+        print(matrix)
+        matrix = True
+        return multiple_selections, matrix
+
+    ## otherwise, probably mulitple selections
+    else:
+        multiple_selections = True
+        return multiple_selections, matrix
+
+def get_percents(data,codebook,q_codebook,question="BPC1",demo=None):
     """
     Returns percent who selected each option,
     works for questions that have multiple or single selection.
 
     Demo input optional.
     """
+    #boolean check for question type
+    
     q_columns = data.filter(regex='^'+question+"_").columns
+    multiple_selections, matrix = data_type_check(data,q_columns)
 
-    if len(q_columns) == 0: # underscore only used when each option has selections
-        multiple_selections = False
-
-    ## to address single select questions with a short response text answer
-    elif (len(q_columns) == 1) and ("TEXT" in q_columns[0]):
-        multiple_selections = False
-
-    ## otherwise, probably mulitple selections
-    else:
-        multiple_selections = True
-
+    print(multiple_selections, matrix)
+    #holder dict
     demo_results = {}
 
     #if demo provided
@@ -110,9 +130,19 @@ def get_percents(data,codebook,q_codebook,question="BPC1",demo=None) -> dict:
         for demo_group, group_data in data.groupby([demo]):
             #lookup demo name
             demo_category_name = get_name_from_codebook(codebook,demo,demo_group[0])
+            
             #store to results dict
             if multiple_selections:
                 demo_results[demo_category_name] = get_percent_select_multiple_base(group_data,q_codebook,question)
+            
+            elif matrix:
+                #create multi-level index
+                demo_results[demo_category_name] = {}
+
+                # for each matrix level
+                for q in q_columns:
+                    demo_results[demo_category_name][clean_key(q_codebook[q])] = get_percents_select_one_base(group_data,codebook,q)
+                    
             else:
                 demo_results[demo_category_name] = get_percents_select_one_base(group_data,codebook,question)
 
@@ -120,7 +150,24 @@ def get_percents(data,codebook,q_codebook,question="BPC1",demo=None) -> dict:
 
     if multiple_selections:
         demo_results["overall"] = get_percent_select_multiple_base(data,q_codebook,question)
+
+    elif matrix:
+        for q in q_columns:
+            demo_results[demo_category_name][clean_key(q_codebook[q])] = get_percents_select_one_base(data,codebook,q)
+
     else:
         demo_results["overall"] = get_percents_select_one_base(data,codebook,question)
 
-    return pd.DataFrame(demo_results).sort_values(by='overall',ascending=False)
+    if matrix: #format as multilevel index
+        flattened_dict = {
+            (age_group, question): results
+            for age_group, questions in demo_results.items()
+            for question, results in questions.items()
+        }
+
+        df = pd.DataFrame.from_dict(flattened_dict, orient='index').T
+        
+        return(df.sort_values(by=df.columns[0]))
+
+    else:
+        return pd.DataFrame(demo_results).sort_values(by='overall',ascending=False) #return 
