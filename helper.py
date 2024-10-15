@@ -123,4 +123,4 @@ def get_percents(data,codebook,q_codebook,question="BPC1",demo=None) -> dict:
     else:
         demo_results["overall"] = get_percents_select_one_base(data,codebook,question)
 
-    return pd.DataFrame(demo_results)
+    return pd.DataFrame(demo_results).sort_values(by='overall',ascending=False)
