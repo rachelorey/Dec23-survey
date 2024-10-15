@@ -89,7 +89,6 @@ def data_type_check(data,q_columns):
     """
     matrix = False
     multiple_selections = False
-    print(q_columns)
 
     if len(q_columns) == 0: # underscore only used when each option has selections
         return multiple_selections, matrix # single selection
@@ -99,8 +98,7 @@ def data_type_check(data,q_columns):
         return multiple_selections, matrix # single selection
 
     ## selects matrix quetsion (if BOTH multiple columns per question and multiple response categories within each column)
-    elif (len(q_columns) > 1) and (len(data[[q_columns[0]]][q_columns[0]].unique()) > 2):
-        print(matrix)
+    elif (len(q_columns) > 1) and (len(data[[q_columns[0]]].dropna()[q_columns[0]].unique()) > 2):
         matrix = True
         return multiple_selections, matrix
 
@@ -121,7 +119,6 @@ def get_percents(data,codebook,q_codebook,question="BPC1",demo=None):
     q_columns = data.filter(regex='^'+question+"_").columns
     multiple_selections, matrix = data_type_check(data,q_columns)
 
-    print(multiple_selections, matrix)
     #holder dict
     demo_results = {}
 
@@ -147,7 +144,6 @@ def get_percents(data,codebook,q_codebook,question="BPC1",demo=None):
                 demo_results[demo_category_name] = get_percents_select_one_base(group_data,codebook,question)
 
     #either way, add results for overall pop
-
     if multiple_selections:
         demo_results["overall"] = get_percent_select_multiple_base(data,q_codebook,question)
 
@@ -158,6 +154,8 @@ def get_percents(data,codebook,q_codebook,question="BPC1",demo=None):
     else:
         demo_results["overall"] = get_percents_select_one_base(data,codebook,question)
 
+    
+    #return pandas df
     if matrix: #format as multilevel index
         flattened_dict = {
             (age_group, question): results
