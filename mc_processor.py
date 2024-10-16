@@ -28,11 +28,19 @@ def weighted_counts(x):
 #     df[column_name] = df[column_name].map(response_mapping)
 #     return df
 
+
 def clean_key(key_name):
     try:
-        return key_name.split(' --- ')[1].strip()
+        if '---' in key_name:
+            return key_name.split(' --- ')[1].strip()
+        # elif \\ in keyname
+        elif '\\\\' in key_name:
+            return key_name.split('\\\\')[1].strip()
+        else:
+            return key_name
     except:
         return key_name
+    
     
 def get_name_from_codebook(codebook, question, level):
     return codebook.loc[(codebook["question"] == question) & (codebook["value"] == level), "code"].values[0]
